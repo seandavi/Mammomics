@@ -1,0 +1,49 @@
+---
+title: "Preprocessing of Mammomics Data"
+author: "Sean Davis"
+date: "3/16/2015"
+output: html_document
+---
+
+```{r}
+library(oligo)
+abatch = read.celfiles(filenames = dir('Mamomics.upload/transcriptome',pattern='.CEL',full.names = TRUE))
+library(frma)
+eset = frma(abatch)
+library(biomaRt)
+mart = useMart('ensembl',dataset='mmusculus_gene_ensembl')
+res = getBM(mart=mart,attributes=c('ensembl_gene_id',
+                          'affy_mogene_1_0_st_v1',
+                          'entrezgene',
+                          'description',
+                          'chromosome_name',
+                          'start_position',
+                          'end_position',
+                          'strand',
+                          'external_gene_name'))
+```
+
+```{r}
+segdat = read.delim('Mamomics.upload/MouseDivData/mouse.CNVout.mm10.seg')
+seg2GRanges = function(segdat) {
+    require(GenomicRanges)
+    seggr = with(segdat,
+        GRanges(seqnames=Chromosome,
+                ranges  = IRanges(start=StartPosition,
+                    end = EndPosition),
+                mcols=DataFrame(log2cn,Name,Number.of.Probe.sets)))
+    colnames(mcols(seggr)) = sub('mcols\\.','',colnames(mcols(seggr)))
+    return(seggr)
+    }
+seggr = seg2GRanges(segdat)
+```
+
+```{r}
+library(VariantAnnotation)
+vcf = readVcf('Mamomics.upload/exome/snp137-Sanger.Removed.LW.ALL.vcf',
+    genome='hg19')
+```
+
+```{r}
+seqlengths(seggr) = seqlengths(vr)[seqlevels(seggr)]
+```
